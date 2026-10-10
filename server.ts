@@ -153,11 +153,14 @@ app.prepare().then(() => {
     cors: {
       origin: process.env.NEXT_PUBLIC_SITE_URL || '*',
       methods: ['GET', 'POST'],
+      credentials: true,
     },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
     maxHttpBufferSize: 1e6, // 1MB payload buffer limit
-    pingTimeout: 60000,     // 60s max ping wait (useful for shaky mobile connections)
+    pingTimeout: 60000,     // 60s max ping wait
     pingInterval: 25000,    // 25s ping heartbeats
-    perMessageDeflate: true // Enables compression for heavy leaderboards
+    perMessageDeflate: true
   });
 
   server.use(cors());
