@@ -9,11 +9,9 @@ import {
   Volume2,
   VolumeX,
   X,
-  Radio,
   Tv,
   Users,
   Trophy,
-  Sliders,
   Home as HomeIcon
 } from 'lucide-react';
 import { sound } from '@/lib/audio';
