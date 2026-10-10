@@ -12,7 +12,8 @@ import {
   Sparkles,
   Volume2,
   Timer as TimerIcon,
-  Calculator
+  Calculator,
+  SkipForward
 } from 'lucide-react';
 import { QuizQuestion, getCategoryMeta } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
@@ -36,11 +37,20 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
   onToggleFreezeTimer,
   playersCount = 0,
 }) => {
-  const [countdown, setCountdown] = useState(15);
+  const pace = question?.standardPaceSec || 20;
+  const [countdown, setCountdown] = useState(pace);
+  const [autoSkipCountdown, setAutoSkipCountdown] = useState<number | null>(null);
   const totalAudience = playersCount;
   const [submittedCount, setSubmittedCount] = useState(0);
 
   const categoryMeta = getCategoryMeta(question?.category || 'Quant');
+
+  // Reset timer whenever a new question is loaded on projector
+  useEffect(() => {
+    const qPace = question?.standardPaceSec || 20;
+    setCountdown(qPace);
+    setAutoSkipCountdown(null);
+  }, [question?.id, question?.standardPaceSec]);
 
   // Realtime projector countdown
   useEffect(() => {
@@ -51,6 +61,7 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
         if (prev <= 1) {
           clearInterval(interval);
           sound.playTick(true);
+          setAutoSkipCountdown(3);
           return 0;
         }
         if (prev <= 5) {
@@ -61,7 +72,25 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timerFrozen]);
+  }, [timerFrozen, question?.id]);
+
+  // Auto-skip grace period countdown (3s before auto-revealing round answer)
+  useEffect(() => {
+    if (autoSkipCountdown === null || timerFrozen) return;
+
+    if (autoSkipCountdown <= 0) {
+      sound.playSuccess();
+      onRevealAnswer();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      sound.playTick(true);
+      setAutoSkipCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [autoSkipCountdown, timerFrozen, onRevealAnswer]);
 
   if (!question) {
     return (
@@ -110,26 +139,63 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
             </div>
 
             {/* Projector Big Timer Widget */}
-            <div className="flex items-center gap-4 bg-[#0e082a]/90 px-6 py-2.5 rounded-full shadow-2xl border border-white/10">
-              <div className="flex flex-col items-end">
-                <span className="text-[11px] font-black tracking-widest text-[#c8bfff] uppercase leading-tight">
-                  Time Remaining
-                </span>
-                <span className="text-xs text-[#c9c4d8]/80 font-medium">
-                  {timerFrozen ? 'Timer paused by Host' : 'Points lock at 0s'}
-                </span>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 bg-[#0e082a]/90 px-4 py-2.5 rounded-full border border-white/10 text-xs font-bold text-white shadow-xl">
+                <SkipForward className="w-3.5 h-3.5 text-[#38bdf8]" />
+                <span className="text-white/70">Auto-Skip:</span>
+                <span className="font-mono text-cyan-300">{countdown}s</span>
               </div>
-              <div
-                onClick={onToggleFreezeTimer}
-                title="Click to freeze or unfreeze timer"
-                className="relative flex items-center justify-center w-14 h-14 rounded-full bg-[#93000a] text-[#ffdad6] shadow-inner cursor-pointer hover:scale-105 transition-transform"
-              >
-                <span className="font-['Rubik'] font-black text-2xl sm:text-3xl leading-none text-[#ffb4ab]">
-                  {countdown < 10 ? `0${countdown}` : countdown}
-                </span>
+
+              <div className="flex items-center gap-4 bg-[#0e082a]/90 px-6 py-2.5 rounded-full shadow-2xl border border-white/10">
+                <div className="flex flex-col items-end">
+                  <span className="text-[11px] font-black tracking-widest text-[#c8bfff] uppercase leading-tight">
+                    Time Remaining
+                  </span>
+                  <span className="text-xs text-[#c9c4d8]/80 font-medium">
+                    {timerFrozen ? 'Timer paused by Host' : 'Points lock at 0s'}
+                  </span>
+                </div>
+                <div
+                  onClick={onToggleFreezeTimer}
+                  title="Click to freeze or unfreeze timer"
+                  className="relative flex items-center justify-center w-14 h-14 rounded-full bg-[#93000a] text-[#ffdad6] shadow-inner cursor-pointer hover:scale-105 transition-transform"
+                >
+                  <span className="font-['Rubik'] font-black text-2xl sm:text-3xl leading-none text-[#ffb4ab]">
+                    {countdown < 10 ? `0${countdown}` : countdown}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Auto-Skip Active Stage Banner */}
+          {autoSkipCountdown !== null && (
+            <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 border border-white/30 shadow-2xl flex items-center justify-between gap-4 text-white animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-['Rubik'] font-black text-xl text-yellow-300 border border-white/20">
+                  {autoSkipCountdown}
+                </div>
+                <div>
+                  <div className="font-['Rubik'] font-black text-base uppercase">
+                    STAGE TIMER EXPIRED • AUTO-SKIPPING TO REVEAL
+                  </div>
+                  <div className="text-xs text-white/90">
+                    Broadcasting answer and class response telemetry in {autoSkipCountdown} seconds...
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playSuccess();
+                  onRevealAnswer();
+                }}
+                className="px-5 py-2.5 rounded-full bg-white text-black font-['Rubik'] font-black text-xs hover:bg-white/90 shadow-lg active:scale-95 transition-transform flex items-center gap-2 cursor-pointer"
+              >
+                <span>Reveal Now</span>
+                <SkipForward className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Main Monumental Header */}
           <div className="text-center my-1 lg:my-2">
@@ -338,13 +404,13 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <button
             onClick={() => {
               sound.playClick();
               onToggleFreezeTimer();
             }}
-            className="px-5 py-2.5 rounded-full bg-[#201b3c] hover:bg-[#2a2547] text-white text-sm font-bold transition-colors flex items-center gap-2 border border-white/5 active:scale-95 cursor-pointer"
+            className="px-4 sm:px-5 py-2.5 rounded-full bg-[#201b3c] hover:bg-[#2a2547] text-white text-xs sm:text-sm font-bold transition-colors flex items-center gap-2 border border-white/5 active:scale-95 cursor-pointer"
           >
             {timerFrozen ? <Play className="w-4 h-4 text-[#c8bfff]" /> : <Pause className="w-4 h-4 text-[#ffb4ab]" />}
             <span>{timerFrozen ? 'Resume Timer' : 'Freeze Timer'}</span>
@@ -352,10 +418,23 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
 
           <button
             onClick={() => {
+              sound.playClick();
               sound.playSuccess();
               onRevealAnswer();
             }}
-            className="px-6 py-2.5 rounded-full bg-[#7359f8] text-white text-sm font-black hover:bg-[#5c3fe0] shadow-lg transition-transform active:scale-95 flex items-center gap-2 cursor-pointer"
+            title="Fast-forward and skip stage timer immediately"
+            className="px-4 sm:px-5 py-2.5 rounded-full bg-[#201b3c] hover:bg-[#2a2547] text-[#cbd5e1] hover:text-white text-xs sm:text-sm font-bold transition-colors flex items-center gap-2 border border-white/5 active:scale-95 cursor-pointer"
+          >
+            <SkipForward className="w-4 h-4 text-[#ffb4ab]" />
+            <span>Skip Question</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playSuccess();
+              onRevealAnswer();
+            }}
+            className="px-5 sm:px-6 py-2.5 rounded-full bg-[#7359f8] text-white text-xs sm:text-sm font-black hover:bg-[#5c3fe0] shadow-lg transition-transform active:scale-95 flex items-center gap-2 cursor-pointer"
           >
             <span>Reveal Answer</span>
             <ArrowRight className="w-4 h-4" />

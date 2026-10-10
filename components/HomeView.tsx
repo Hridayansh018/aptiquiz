@@ -23,7 +23,8 @@ import {
   Radio,
   ChevronRight,
   Copy,
-  Check
+  Check,
+  QrCode
 } from 'lucide-react';
 import {
   HostedQuizRoom,
@@ -46,6 +47,7 @@ interface HomeViewProps {
   onOpenProfile: () => void;
   onOpenStandings: () => void;
   onOpenAdminModal: () => void;
+  onOpenQRForRoom?: (roomCode: string, roomTitle?: string) => void;
   questionsCount: number;
 }
 
@@ -61,6 +63,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenProfile,
   onOpenStandings,
   onOpenAdminModal,
+  onOpenQRForRoom,
   questionsCount,
 }) => {
   const [pinInput, setPinInput] = useState('');
@@ -339,7 +342,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* Category Tabs */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-bold text-[#c9c4d8] mr-1 hidden sm:inline">Category:</span>
-            {(['all', 'Quant', 'Logic', 'Verbal'] as const).map((cat) => (
+            {(['all', 'Quant', 'Logic', 'Verbal', 'Data Interpretation'] as const).map((cat) => (
               <button
                 key={cat}
                 onClick={() => {
@@ -434,9 +437,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                             {room.roundInfo}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider">
-                            <Clock className="w-3 h-3" />
-                            {room.roundInfo}
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Ready to Start
                           </span>
                         )}
                       </div>
@@ -483,8 +486,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Join buttons */}
-                    <div className="flex items-center gap-2">
+                    {/* Action buttons (Invite QR, Start, Lobby, Copy) */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Invite QR Code Modal trigger */}
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          if (onOpenQRForRoom) {
+                            onOpenQRForRoom(room.roomCode, room.title);
+                          }
+                        }}
+                        title="Invite Players via QR Code"
+                        className="px-2.5 py-2 rounded-xl bg-[#7359f8]/10 hover:bg-[#7359f8]/20 text-[#c8bfff] hover:text-white transition-colors cursor-pointer border border-[#7359f8]/30 flex items-center gap-1.5 text-xs font-bold"
+                      >
+                        <QrCode className="w-4 h-4 text-[#7359f8]" />
+                        <span>Invite QR</span>
+                      </button>
+
+                      {/* Copy PIN */}
                       <button
                         onClick={() => handleCopyCode(room.roomCode)}
                         title="Copy Room PIN"
@@ -497,15 +516,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         )}
                       </button>
 
+                      {/* Fast Start into Arena */}
                       <button
                         onClick={() => {
                           sound.playClick();
-                          onJoinRoom(room.roomCode, room.status === 'live' ? 'quiz-arena' : 'lobby');
+                          onJoinRoom(room.roomCode, 'quiz-arena');
                         }}
-                        className="px-4 py-2 rounded-xl bg-[#7359f8] hover:bg-[#5c3fe0] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                        title="Start this Quiz immediately"
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 transition-all shadow-md active:scale-95 cursor-pointer"
                       >
-                        <span>Join {room.roomCode}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Start</span>
+                      </button>
+
+                      {/* Join Lobby */}
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          onJoinRoom(room.roomCode, 'lobby');
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-[#7359f8] hover:bg-[#5c3fe0] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Lobby</span>
                       </button>
                     </div>
                   </div>

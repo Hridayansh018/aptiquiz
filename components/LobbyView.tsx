@@ -21,12 +21,7 @@ import {
   Calculator,
   ShieldCheck,
   Share2,
-  ExternalLink,
-  MessageCircle,
-  Send,
-  Globe,
-  Mail,
-  X
+  ExternalLink
 } from 'lucide-react';
 import { Player } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
@@ -49,8 +44,6 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onToggleLockRoom,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const [activePlayerList, setActivePlayerList] = useState<Player[]>(players);
@@ -59,42 +52,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     setActivePlayerList(players);
   }, [players]);
 
-  const getDeepLink = () => {
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}?room=${roomCode}&tab=lobby`;
-    }
-    return `https://ais-pre-esd624srcx7jmcqazsyubs-119535299951.asia-southeast1.run.app?room=${roomCode}&tab=lobby`;
-  };
-
   const handleCopy = () => {
     sound.playClick();
     navigator.clipboard?.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleCopyDeepLink = () => {
-    sound.playClick();
-    const link = getDeepLink();
-    navigator.clipboard?.writeText(link);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  };
-
-  const handleNativeShare = async () => {
-    sound.playClick();
-    const link = getDeepLink();
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Join Quitzo AptiQuiz Room ${roomCode}`,
-          text: `Join our live synchronized collegiate aptitude showdown! Room PIN: ${roomCode}`,
-          url: link,
-        });
-        return;
-      } catch {}
-    }
-    handleCopyDeepLink();
   };
 
   const handleShuffle = () => {
@@ -218,17 +180,17 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     <span>{copied ? 'Copied!' : 'Copy Code'}</span>
                   </button>
 
-                  {/* Share Deep Link Button */}
+                  {/* Share Deep Link & QR Button */}
                   <button
                     onClick={() => {
                       sound.playClick();
-                      setShareModalOpen(true);
+                      onOpenQR();
                     }}
-                    title="Share Deep Link on social or messaging apps"
+                    title="Share Deep Link on social apps or display QR Code"
                     className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-[#201b3c] hover:bg-[#2e2654] text-white font-bold text-sm shadow-md transition-all active:scale-95 border border-white/10 group cursor-pointer"
                   >
                     <Share2 className="w-4 h-4 text-[#c8bfff] group-hover:scale-110 transition-transform" />
-                    <span>Share Link</span>
+                    <span>Share &amp; QR</span>
                   </button>
 
                   <button
@@ -533,141 +495,6 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           </button>
         </div>
       </aside>
-
-      {/* Share Deep Link Modal Dialog */}
-      {shareModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0e082a] text-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative border border-white/15">
-            {/* Close button */}
-            <button
-              onClick={() => {
-                sound.playClick();
-                setShareModalOpen(false);
-              }}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#201b3c] flex items-center justify-center text-[#c9c4d8] hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#7359f8] to-[#c8bfff] flex items-center justify-center text-[#0e082a] shadow-lg">
-                <Share2 className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <div>
-                <h3 className="font-['Rubik'] font-black text-lg text-white">
-                  Share Quiz Lobby
-                </h3>
-                <p className="text-xs text-[#c9c4d8]">
-                  Invite classmates &amp; competitors via deep link
-                </p>
-              </div>
-            </div>
-
-            {/* Room Badge */}
-            <div className="p-3 bg-[#1c1738] rounded-xl border border-white/10 flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#00e599] animate-pulse"></span>
-                <span className="text-xs font-bold text-[#c9c4d8]">INVITE PIN:</span>
-                <span className="font-['Rubik'] font-black text-sm text-white tracking-widest">{roomCode}</span>
-              </div>
-              <span className="text-[10px] font-black uppercase text-[#c8bfff] bg-[#2a2254] px-2.5 py-0.5 rounded-full">
-                {joinedCount} in Lobby
-              </span>
-            </div>
-
-            {/* Deep Link Preview with Copy */}
-            <div className="mb-5">
-              <label className="text-[11px] font-bold text-[#c9c4d8] uppercase tracking-wider block mb-1.5">
-                Direct Deep Link URL
-              </label>
-              <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#140e33] border border-white/15">
-                <input
-                  type="text"
-                  readOnly
-                  value={getDeepLink()}
-                  className="flex-1 bg-transparent text-xs text-[#e5deff] font-mono px-2 outline-none select-all overflow-ellipsis"
-                />
-                <button
-                  onClick={handleCopyDeepLink}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 shadow-sm cursor-pointer ${
-                    linkCopied
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-[#7359f8] hover:bg-[#5c3fe0] text-white'
-                  }`}
-                >
-                  {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{linkCopied ? 'Copied Link!' : 'Copy Link'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Sharing Channels */}
-            <div className="space-y-2 mb-4">
-              <label className="text-[11px] font-bold text-[#c9c4d8] uppercase tracking-wider block">
-                Quick Share via Social &amp; Messaging
-              </label>
-              
-              <div className="grid grid-cols-2 gap-2">
-                {/* WhatsApp */}
-                <a
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`⚡ Join my Quitzo AptiQuiz live arena! Room PIN: ${roomCode}\n${getDeepLink()}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => sound.playClick()}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/30 text-white transition-all text-xs font-bold"
-                >
-                  <MessageCircle className="w-4 h-4 text-[#25D366] shrink-0" />
-                  <span>WhatsApp</span>
-                </a>
-
-                {/* X / Twitter */}
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Competing in Quitzo AptiQuiz collegiate live arena! Join room: ${roomCode} ⚡\n${getDeepLink()}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => sound.playClick()}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-white transition-all text-xs font-bold"
-                >
-                  <Send className="w-4 h-4 text-[#1DA1F2] shrink-0" />
-                  <span>X (Twitter)</span>
-                </a>
-
-                {/* Telegram */}
-                <a
-                  href={`https://t.me/share/url?url=${encodeURIComponent(getDeepLink())}&text=${encodeURIComponent(`⚡ Competing in Quitzo AptiQuiz! Join my room PIN: ${roomCode}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => sound.playClick()}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-[#0088cc]/15 hover:bg-[#0088cc]/25 border border-[#0088cc]/30 text-white transition-all text-xs font-bold"
-                >
-                  <Send className="w-4 h-4 text-[#0088cc] shrink-0" />
-                  <span>Telegram</span>
-                </a>
-
-                {/* Email / Message */}
-                <a
-                  href={`mailto:?subject=${encodeURIComponent(`Join my Quitzo AptiQuiz Room ${roomCode}`)}&body=${encodeURIComponent(`Hey!\n\nJoin our collegiate aptitude showdown on Quitzo AptiQuiz!\n\nRoom PIN: ${roomCode}\nDirect Link: ${getDeepLink()}\n\nSee you in the arena!`)}`}
-                  onClick={() => sound.playClick()}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-[#ea4335]/15 hover:bg-[#ea4335]/25 border border-[#ea4335]/30 text-white transition-all text-xs font-bold"
-                >
-                  <Mail className="w-4 h-4 text-[#ea4335] shrink-0" />
-                  <span>Email</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Native Web Share Button */}
-            <button
-              onClick={handleNativeShare}
-              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold flex items-center justify-center gap-2 border border-white/10 transition-colors cursor-pointer"
-            >
-              <Globe className="w-4 h-4 text-[#c8bfff]" />
-              <span>Open Device Share Menu</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

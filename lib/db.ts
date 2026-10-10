@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { QuizQuestion, Player, HostedQuizRoom, RoundPerformance, Achievement } from './quiz-data';
+import { QuizQuestion, Player, HostedQuizRoom, RoundPerformance, Achievement, DEFAULT_10_QUIZZES } from './quiz-data';
 
 // ============================================================================
 // QUESTIONS CRUD
@@ -90,7 +90,7 @@ export async function insertQuestion(question: Omit<QuizQuestion, 'id'> & { room
 
 export async function getRooms(): Promise<HostedQuizRoom[]> {
   if (!isSupabaseConfigured()) {
-    return [];
+    return DEFAULT_10_QUIZZES;
   }
 
   const { data, error } = await supabase
@@ -98,12 +98,12 @@ export async function getRooms(): Promise<HostedQuizRoom[]> {
     .select('*, room_players(count)')
     .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching rooms from Supabase:', error);
-    return [];
+  if (error || !data || data.length === 0) {
+    if (error) console.error('Error fetching rooms from Supabase:', error);
+    return DEFAULT_10_QUIZZES;
   }
 
-  return (data || []).map((row: any) => {
+  const dbRooms: HostedQuizRoom[] = data.map((row: any) => {
     const playersJoined = row.room_players?.[0]?.count ?? 0;
     return {
       roomCode: row.room_code,
@@ -113,26 +113,38 @@ export async function getRooms(): Promise<HostedQuizRoom[]> {
       playersJoined,
       maxPlayers: row.max_players,
       status: row.status,
-      roundInfo: `Round ${String(row.current_round || 1).padStart(2, '0')} / ${row.total_rounds || 15}`,
-      questionCount: row.total_rounds || 15,
+      roundInfo: `Round ${String(row.current_round || 1).padStart(2, '0')} / ${row.total_rounds || 30}`,
+      questionCount: row.total_rounds || 30,
       tags: row.tags || [],
     };
   });
+
+  const existingCodes = new Set(dbRooms.map((r) => r.roomCode.toUpperCase()));
+  const missingDefaults = DEFAULT_10_QUIZZES.filter(
+    (r) => !existingCodes.has(r.roomCode.toUpperCase())
+  );
+
+  return [...dbRooms, ...missingDefaults];
 }
 
 export async function getRoom(roomCode: string): Promise<HostedQuizRoom | null> {
+  const normalizedCode = (roomCode || '').trim().toUpperCase();
+  const defaultMatch = DEFAULT_10_QUIZZES.find(
+    (r) => r.roomCode.toUpperCase() === normalizedCode
+  );
+
   if (!isSupabaseConfigured()) {
-    return null;
+    return defaultMatch || null;
   }
 
   const { data, error } = await supabase
     .from('rooms')
     .select('*')
-    .eq('room_code', roomCode)
+    .eq('room_code', normalizedCode)
     .single();
 
   if (error || !data) {
-    return null;
+    return defaultMatch || null;
   }
 
   return {

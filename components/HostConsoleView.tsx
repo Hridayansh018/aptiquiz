@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   Users,
   Settings,
-  Plus
+  Plus,
+  SkipForward,
+  Timer
 } from 'lucide-react';
 import { QuizQuestion, Player, getCategoryMeta } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
@@ -161,7 +163,7 @@ export const HostConsoleView: React.FC<HostConsoleViewProps> = ({
                 </div>
 
                 {/* Primary Action Buttons */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                   <button
                     onClick={() => {
                       sound.playClick();
@@ -193,6 +195,18 @@ export const HostConsoleView: React.FC<HostConsoleViewProps> = ({
                       sound.playClick();
                       onNextQuestion();
                     }}
+                    title="Skip current question immediately without answer evaluation"
+                    className="p-3.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-['Rubik'] font-black text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    <SkipForward className="w-4 h-4 text-amber-700" />
+                    <span>Skip Question (Fast-Forward)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onNextQuestion();
+                    }}
                     className="p-3.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#0e082a] font-['Rubik'] font-bold text-sm flex items-center justify-center gap-2 transition-all border border-gray-300 active:scale-95 cursor-pointer"
                   >
                     <ArrowRight className="w-4 h-4" />
@@ -214,21 +228,46 @@ export const HostConsoleView: React.FC<HostConsoleViewProps> = ({
 
               {/* Proctoring & Scoring Settings */}
               <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-gray-600">
-                <div className="flex items-center gap-2">
-                  <span>Speed Multiplier:</span>
-                  {(['1.0x', '1.5x', '2.0x'] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setMultiplier(m)}
-                      className={`px-2.5 py-1 rounded-md transition-colors ${
-                        multiplier === m
-                          ? 'bg-[#7359f8] text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-[#0e082a]'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span>Speed Multiplier:</span>
+                    {(['1.0x', '1.5x', '2.0x'] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMultiplier(m)}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
+                          multiplier === m
+                            ? 'bg-[#7359f8] text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+                    <Timer className="w-3.5 h-3.5 text-[#7359f8]" />
+                    <span>Auto-Skip Timer:</span>
+                    {([15, 20, 30, 45] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          sound.playClick();
+                          if (currentQuestion) {
+                            currentQuestion.standardPaceSec = s;
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded-md transition-colors ${
+                          (currentQuestion?.standardPaceSec || 20) === s
+                            ? 'bg-[#0e082a] text-[#c8bfff]'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {s}s
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">

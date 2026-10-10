@@ -21,77 +21,295 @@ import {
   Database,
   BookOpen,
   PlusCircle,
-  Code
+  Code,
+  Download,
+  Share2,
+  MessageCircle,
+  Send,
+  Mail,
+  Globe
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { Player, QuizQuestion, Achievement, QuestionCategory } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
 
-// 1. QR Code Modal
+// Safe clipboard copy function supporting modern & legacy fallbacks
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const success = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+// 1. QR Code & Share Modal (Unified Real Scannable QR Code + Social Sharing)
 interface QRModalProps {
   isOpen: boolean;
   onClose: () => void;
   roomCode: string;
+  roomTitle?: string;
 }
 
-export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, roomCode }) => {
-  const [copied, setCopied] = useState(false);
+export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, roomCode, roomTitle }) => {
+  const cleanCode = (roomCode || 'LIVE01').toUpperCase();
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [shared, setShared] = useState(false);
+
+  const getInviteUrl = React.useCallback(() => {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/lobby?room=${cleanCode}`;
+    }
+    return `http://localhost:3000/lobby?room=${cleanCode}`;
+  }, [cleanCode]);
+
+  React.useEffect(() => {
+    if (!isOpen || !cleanCode) return;
+    const url = getInviteUrl();
+    QRCode.toDataURL(url, {
+      width: 360,
+      margin: 2,
+      color: {
+        dark: '#0e082a',
+        light: '#ffffff',
+      },
+    })
+      .then((dataUri) => setQrDataUrl(dataUri))
+      .catch((err) => console.error('Failed to generate QR code:', err));
+  }, [isOpen, cleanCode, getInviteUrl]);
 
   if (!isOpen) return null;
 
-  const handleCopy = () => {
+  const inviteUrl = getInviteUrl();
+  const shareMessage = `⚡ Join my AptiQuiz Collegiate Arena!\nRoom PIN: ${cleanCode}\nDirect Link: ${inviteUrl}`;
+
+  const handleCopyCode = async () => {
     sound.playClick();
-    navigator.clipboard.writeText(roomCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const ok = await copyToClipboard(cleanCode);
+    if (ok) {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    sound.playClick();
+    const ok = await copyToClipboard(inviteUrl);
+    if (ok) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrDataUrl) return;
+    sound.playClick();
+    const link = document.createElement('a');
+    link.download = `AptiQuiz-Room-${cleanCode}-QR.png`;
+    link.href = qrDataUrl;
+    link.click();
+  };
+
+  const handleNativeShare = async () => {
+    sound.playClick();
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join AptiQuiz Arena: ${cleanCode}`,
+          text: `Join the live collegiate aptitude challenge in room ${cleanCode}!`,
+          url: inviteUrl,
+        });
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+        return;
+      } catch {}
+    }
+    handleCopyLink();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white text-[#0e082a] rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl text-center relative border border-gray-100">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 overflow-y-auto">
+      <div className="bg-[#120d2e] text-white rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-2xl relative border border-white/15 my-auto">
+        {/* Close Button */}
         <button
           onClick={() => {
             sound.playClick();
             onClose();
           }}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200 transition-colors"
+          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-[#c9c4d8] hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <span className="text-xs font-black text-[#7359f8] uppercase tracking-widest block">
-          SCAN TO JOIN QUICKLY
-        </span>
-        <h3 className="font-['Rubik'] font-black text-2xl text-[#0e082a] mt-1">
-          Room {roomCode}
-        </h3>
-
-        {/* SVG QR Code */}
-        <div className="my-5 p-4 bg-gray-50 rounded-2xl shadow-inner inline-block border border-gray-200">
-          <svg className="w-44 h-44 mx-auto text-[#0e082a]" fill="currentColor" viewBox="0 0 100 100">
-            <path d="M0 0h30v30H0zm5 5v20h20V5z M10 10h10v10H10z M70 0h30v30H70zm5 5v20h20V5z M80 10h10v10H80z M0 70h30v30H0zm5 5v20h20V5z M10 80h10v10H10z M40 10h20v10H40z M40 40h20v20H40z M10 40h20v20H10z M70 40h20v10H70z M70 60h10v10H70z M80 70h20v30H80zm5 5v20h10v-20z M40 70h10v30H40z M55 80h15v10H55z" />
-          </svg>
+        {/* Modal Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#7359f8] to-[#c8bfff] flex items-center justify-center text-[#0e082a] shadow-lg shrink-0">
+            <QrCode className="w-6 h-6 stroke-[2.5]" />
+          </div>
+          <div>
+            <h3 className="font-['Rubik'] font-black text-xl text-white">
+              Share &amp; Invite Contenders
+            </h3>
+            <p className="text-xs text-[#c9c4d8]">
+              Scan live QR code or share invite link across channels
+            </p>
+          </div>
         </div>
 
-        <p className="text-xs text-gray-500 font-medium">
-          Point phone camera at this QR code to join without entering room code manually.
-        </p>
-
-        <div className="mt-5 flex gap-2">
+        {/* Room Header Info */}
+        <div className="p-3 bg-[#1c1738] rounded-xl border border-white/10 flex items-center justify-between gap-2 mb-4">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#c8bfff] block">
+              ROOM PIN
+            </span>
+            <span className="font-['Rubik'] font-black text-2xl text-white tracking-widest leading-tight block">
+              {cleanCode}
+            </span>
+            {roomTitle && (
+              <span className="text-[11px] text-[#c9c4d8] font-medium line-clamp-1 block mt-0.5">
+                {roomTitle}
+              </span>
+            )}
+          </div>
           <button
-            onClick={handleCopy}
-            className="flex-1 py-3 rounded-full bg-gray-100 hover:bg-gray-200 text-[#0e082a] font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+            onClick={handleCopyCode}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              copiedCode ? 'bg-emerald-600 text-white' : 'bg-[#7359f8] hover:bg-[#5c3fe0] text-white'
+            }`}
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-            <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+            {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedCode ? 'PIN Copied!' : 'Copy PIN'}</span>
           </button>
+        </div>
+
+        {/* Central High-Contrast QR Code Card */}
+        <div className="p-4 bg-white rounded-2xl shadow-xl border border-white/20 text-center my-3 max-w-[280px] mx-auto flex flex-col items-center justify-center">
+          {qrDataUrl ? (
+            <img
+              src={qrDataUrl}
+              alt={`QR Code for Room ${cleanCode}`}
+              className="w-56 h-56 rounded-lg object-contain"
+            />
+          ) : (
+            <div className="w-56 h-56 flex items-center justify-center text-[#0e082a] text-xs font-bold">
+              Generating scannable QR code...
+            </div>
+          )}
+          <span className="block text-[11px] font-black uppercase tracking-wider text-[#0e082a] mt-2">
+            Scan with phone camera to join
+          </span>
+        </div>
+
+        {/* Direct Link Preview Bar */}
+        <div className="my-3">
+          <label className="text-[11px] font-bold text-[#c9c4d8] uppercase tracking-wider block mb-1">
+            Direct Deep Link
+          </label>
+          <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#140e33] border border-white/15">
+            <input
+              type="text"
+              readOnly
+              value={inviteUrl}
+              className="flex-1 bg-transparent text-xs text-[#e5deff] font-mono px-2 outline-none select-all truncate"
+            />
+            <button
+              onClick={handleCopyLink}
+              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                copiedLink ? 'bg-emerald-600 text-white' : 'bg-[#7359f8] hover:bg-[#5c3fe0] text-white'
+              }`}
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Social Share Channels */}
+        <div className="my-3">
+          <label className="text-[11px] font-bold text-[#c9c4d8] uppercase tracking-wider block mb-1.5">
+            Quick Share to Messaging &amp; Socials
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* WhatsApp */}
+            <a
+              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => sound.playClick()}
+              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/30 text-white transition-all text-xs font-bold"
+            >
+              <MessageCircle className="w-4 h-4 text-[#25D366] shrink-0" />
+              <span>WhatsApp</span>
+            </a>
+
+            {/* Telegram */}
+            <a
+              href={`https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent(`⚡ Join my AptiQuiz live arena! Room PIN: ${cleanCode}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => sound.playClick()}
+              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-[#0088cc]/15 hover:bg-[#0088cc]/25 border border-[#0088cc]/30 text-white transition-all text-xs font-bold"
+            >
+              <Send className="w-4 h-4 text-[#0088cc] shrink-0" />
+              <span>Telegram</span>
+            </a>
+
+            {/* X / Twitter */}
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Competing in AptiQuiz collegiate live arena! Join room ${cleanCode} ⚡\n${inviteUrl}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => sound.playClick()}
+              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-white transition-all text-xs font-bold"
+            >
+              <Send className="w-4 h-4 text-[#1DA1F2] shrink-0" />
+              <span>X / Twitter</span>
+            </a>
+
+            {/* Email */}
+            <a
+              href={`mailto:?subject=${encodeURIComponent(`Join AptiQuiz Arena: Room ${cleanCode}`)}&body=${encodeURIComponent(`Hey!\n\nJoin our collegiate aptitude battle on AptiQuiz!\n\nRoom PIN: ${cleanCode}\nDirect Link: ${inviteUrl}\n\nSee you in the arena!`)}`}
+              onClick={() => sound.playClick()}
+              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-[#ea4335]/15 hover:bg-[#ea4335]/25 border border-[#ea4335]/30 text-white transition-all text-xs font-bold"
+            >
+              <Mail className="w-4 h-4 text-[#ea4335] shrink-0" />
+              <span>Email</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Footer Actions: Download QR + Native Share Menu */}
+        <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-white/10">
           <button
-            onClick={() => {
-              sound.playClick();
-              onClose();
-            }}
-            className="flex-1 py-3 rounded-full bg-[#7359f8] text-white font-bold text-xs shadow-md hover:bg-[#5c3fe0] transition-all"
+            onClick={handleDownloadQR}
+            className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-white/10 transition-all cursor-pointer"
           >
-            Back to Lobby
+            <Download className="w-4 h-4 text-[#c8bfff]" />
+            <span>Save QR Image (.png)</span>
+          </button>
+
+          <button
+            onClick={handleNativeShare}
+            className="py-2.5 px-3 rounded-xl bg-[#7359f8] hover:bg-[#5c3fe0] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+          >
+            <Globe className="w-4 h-4 text-white" />
+            <span>{shared ? 'Shared!' : 'Device Share Menu'}</span>
           </button>
         </div>
       </div>

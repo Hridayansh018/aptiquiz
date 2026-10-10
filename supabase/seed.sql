@@ -30,7 +30,17 @@ VALUES
   ('LIVE01', 'Collegiate National Speed Qualifier', 'Quant', 'Prof. S. Ranganathan', 'live', 1, 15, false, false, 'Welcome contenders! Standard pace is 45s per round.', 100, ARRAY['National', 'Quant Speed', 'Tier-1']),
   ('ARENA2026', 'Auditorium Grand Championship 2026', 'Quant', 'Auditorium Host Desk', 'lobby', 1, 20, false, false, 'Distributed 5-Worker Cluster Enabled. Sync in lobby.', 250, ARRAY['Championship', 'High Stakes', 'Multi-College']),
   ('GATE2026', 'GATE General Aptitude Fast-Track', 'Logic', 'Dr. Anita Joshi', 'starting-soon', 1, 10, false, false, '', 80, ARRAY['GATE', 'Engineering', 'Deductive Logic']),
-  ('CAT2026', 'IIM Verbal & Critical Reasoning Battle', 'Verbal', 'Prof. Vikram Roy', 'lobby', 1, 12, false, false, '', 60, ARRAY['CAT', 'MBA Aptitude', 'Analogies'])
+  ('CAT2026', 'IIM Verbal & Critical Reasoning Battle', 'Verbal', 'Prof. Vikram Roy', 'lobby', 1, 12, false, false, '', 60, ARRAY['CAT', 'MBA Aptitude', 'Analogies']),
+  ('QUANT101', 'Collegiate Quantitative Speed Qualifier', 'Quant', 'Prof. S. Ranganathan', 'lobby', 1, 30, false, false, 'Ready to start! Standard pace is 35-45s per round.', 100, ARRAY['National', 'Quant Speed', 'Tier-1']),
+  ('LOGIC202', 'Deductive & Logical Reasoning Arena', 'Logic', 'Dr. Anita Joshi', 'lobby', 1, 30, false, false, 'Logic arena ready. Speed bonus enabled.', 80, ARRAY['GATE', 'Logic Puzzles', 'Syllogisms']),
+  ('VERBAL303', 'Verbal Ability & Critical Reading Sprint', 'Verbal', 'Prof. Vikram Roy', 'lobby', 1, 30, false, false, '', 60, ARRAY['CAT/GMAT', 'Vocabulary', 'Analogies']),
+  ('DATA404', 'Data Interpretation & Chart Championship', 'Data Interpretation', 'Dr. Meera Swaminathan', 'lobby', 1, 30, false, false, '', 100, ARRAY['DI & Analytics', 'Bar Charts', 'Pie Charts']),
+  ('SPEED505', 'Time, Work & Motion Speed Sprint', 'Quant', 'Prof. C. Verma', 'lobby', 1, 30, false, false, '', 120, ARRAY['Time & Work', 'Distance & Pipes', 'High Speed']),
+  ('PROB606', 'Combinatorics & Probability Masters', 'Quant', 'Prof. R. Sundaram', 'lobby', 1, 30, false, false, '', 80, ARRAY['Probability', 'Permutations', 'Combinations']),
+  ('ALGEBRA707', 'High-Yield Algebra & Geometry Battle', 'Quant', 'Dr. Neha Agarwal', 'lobby', 1, 30, false, false, '', 90, ARRAY['Algebra', 'Geometry', 'Quadratics']),
+  ('SERIES808', 'Number Systems & Sequences Blitz', 'Quant', 'Auditorium Host Desk', 'lobby', 1, 30, false, false, '', 100, ARRAY['Number Theory', 'Series & Progressions', 'Fast-Track']),
+  ('CAMPUS909', 'Tier-1 Campus Placement Grand Prix', 'Quant', 'Placement Coordination Cell', 'lobby', 1, 30, false, false, 'Grand Prix ready to start.', 250, ARRAY['Placement 2026', 'TCS/Infosys/Accenture', 'Campus Grand Prix']),
+  ('ADVMIX010', 'Elite Advanced Mixed Aptitude Gauntlet', 'Logic', 'Dr. K. Narayanan', 'lobby', 1, 30, false, false, '', 150, ARRAY['Olympiad', 'Hard Mixed', 'Championship'])
 ON CONFLICT (room_code) DO UPDATE SET
   title = EXCLUDED.title,
   category = EXCLUDED.category,

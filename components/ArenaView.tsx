@@ -17,7 +17,8 @@ import {
   Flame,
   Clock,
   Gauge,
-  Sparkles
+  Sparkles,
+  SkipForward
 } from 'lucide-react';
 import { QuizQuestion, getCategoryMeta } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
@@ -46,26 +47,45 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
   onStreakChange,
 }) => {
   const [currentStreak, setCurrentStreak] = useState(streak ?? 0);
-  const initialSeconds = 20;
-  const [secondsRemaining, setSecondsRemaining] = useState(initialSeconds);
+  const standardPace = question?.standardPaceSec || 20;
+  const [initialSeconds, setInitialSeconds] = useState(standardPace);
+  const [secondsRemaining, setSecondsRemaining] = useState(standardPace);
   const [selectedAnswer, setSelectedAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcDisplay, setCalcDisplay] = useState(question?.scratchpadFormula || '');
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const [pollVisible, setPollVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoSkipCountdown, setAutoSkipCountdown] = useState<number | null>(null);
+  const [skipNoticeVisible, setSkipNoticeVisible] = useState(false);
 
   const categoryMeta = getCategoryMeta(question?.category || 'Quant');
 
-  // Timer countdown
+  // Reset arena state when a new question loads
   useEffect(() => {
-    if (timerFrozen) return;
+    const pace = question?.standardPaceSec || 20;
+    setInitialSeconds(pace);
+    setSecondsRemaining(pace);
+    setSelectedAnswer(null);
+    setEliminatedOptions([]);
+    setPollVisible(false);
+    setIsSubmitting(false);
+    setAutoSkipCountdown(null);
+    setSkipNoticeVisible(false);
+    setCalcDisplay(question?.scratchpadFormula || '');
+  }, [question?.id, question?.standardPaceSec, question?.scratchpadFormula]);
+
+  // Main Question Timer countdown
+  useEffect(() => {
+    if (timerFrozen || isSubmitting) return;
 
     const interval = setInterval(() => {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
           sound.playTick(true);
+          // Trigger the 3-second auto-skip sequence when timer runs out
+          setAutoSkipCountdown(3);
           return 0;
         }
         if (prev <= 6) {
@@ -78,7 +98,24 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timerFrozen]);
+  }, [timerFrozen, isSubmitting, question?.id]);
+
+  // Question Auto-Skip Grace Period Countdown (3s -> 0s -> Auto Advance)
+  useEffect(() => {
+    if (autoSkipCountdown === null || timerFrozen || isSubmitting) return;
+
+    if (autoSkipCountdown <= 0) {
+      handleSkipQuestion('Time Expired • Auto-Skipped');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      sound.playTick(true);
+      setAutoSkipCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [autoSkipCountdown, timerFrozen, isSubmitting]);
 
   // Points calculation based on speed
   const maxPts = 1000;
@@ -154,6 +191,20 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
     setTimeout(() => {
       onNextQuestion(selectedAnswer, currentAvailablePoints);
     }, 500);
+  };
+
+  // Skip question action (via Skip button or Auto-Skip timer expiration)
+  const handleSkipQuestion = (reason: string = 'Question Skipped') => {
+    if (isSubmitting) return;
+    sound.playClick();
+    setIsSubmitting(true);
+    setSkipNoticeVisible(true);
+    setCurrentStreak(0);
+    if (onStreakChange) onStreakChange(0);
+
+    setTimeout(() => {
+      onNextQuestion(null, 0);
+    }, 600);
   };
 
   if (!question) {
@@ -238,25 +289,82 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
             </AnimatePresence>
           </div>
 
-          {/* Realtime Timer Pill */}
-          <div
-            onClick={onToggleFreezeTimer}
-            title={timerFrozen ? 'Timer Paused (Click to resume)' : 'Click to pause timer'}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md text-white shadow-inner border border-white/10 cursor-pointer hover:bg-black/60 transition-colors"
-          >
-            <Timer className={`w-4 h-4 ${isUrgent ? 'text-[#ffb4ab] animate-bounce' : 'text-[#c8bfff] animate-pulse'}`} />
-            <span
-              className={`font-['Rubik'] font-black text-sm sm:text-base tracking-wide ${
-                isUrgent ? 'text-[#ffb4ab]' : 'text-white'
-              }`}
+          {/* Timer & Question Skip Timer Pills */}
+          <div className="flex items-center gap-2">
+            <div
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/10 text-xs font-bold shadow-inner"
+              title="Question auto-skips when timer reaches 0"
             >
-              {secondsRemaining < 10 ? `0${secondsRemaining}` : secondsRemaining}s
-            </span>
-            <span className="text-xs text-white/70">
-              {timerFrozen ? '(Paused)' : 'Remaining'}
-            </span>
+              <SkipForward className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <span className="text-white/80">Auto-Skip:</span>
+              <strong className="text-white font-mono">{secondsRemaining}s</strong>
+            </div>
+
+            {/* Realtime Timer Pill */}
+            <div
+              onClick={onToggleFreezeTimer}
+              title={timerFrozen ? 'Timer Paused (Click to resume)' : 'Click to pause timer'}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md text-white shadow-inner border border-white/10 cursor-pointer hover:bg-black/60 transition-colors"
+            >
+              <Timer className={`w-4 h-4 ${isUrgent ? 'text-[#ffb4ab] animate-bounce' : 'text-[#c8bfff] animate-pulse'}`} />
+              <span
+                className={`font-['Rubik'] font-black text-sm sm:text-base tracking-wide ${
+                  isUrgent ? 'text-[#ffb4ab]' : 'text-white'
+                }`}
+              >
+                {secondsRemaining < 10 ? `0${secondsRemaining}` : secondsRemaining}s
+              </span>
+              <span className="text-xs text-white/70">
+                {timerFrozen ? '(Paused)' : 'Remaining'}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Auto-Skip Active Grace Countdown Banner */}
+        <AnimatePresence>
+          {autoSkipCountdown !== null && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="relative z-20 w-full mb-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 border border-white/30 shadow-2xl flex items-center justify-between gap-3 text-white"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center font-['Rubik'] font-black text-lg text-yellow-300 border border-white/20 shrink-0">
+                  {autoSkipCountdown}
+                </div>
+                <div>
+                  <div className="font-['Rubik'] font-black text-sm sm:text-base flex items-center gap-2">
+                    <span>TIME EXPIRED • AUTO-SKIPPING QUESTION</span>
+                  </div>
+                  <div className="text-xs text-white/80">
+                    Advancing to next question in {autoSkipCountdown}s (0 points awarded).
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleSkipQuestion('Time Expired Skip')}
+                className="px-4 py-2 rounded-full bg-white text-black font-['Rubik'] font-black text-xs hover:bg-white/90 cursor-pointer shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+              >
+                <span>Skip Now</span>
+                <SkipForward className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+          )}
+
+          {skipNoticeVisible && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="relative z-20 w-full mb-4 p-3 rounded-xl bg-amber-500 text-black font-black text-center text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2"
+            >
+              <SkipForward className="w-4 h-4" />
+              <span>QUESTION SKIPPED • Advancing to next round...</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Dynamic Progress Bar Component */}
         <div className="relative z-10 w-full mb-6 sm:mb-8">
@@ -656,15 +764,32 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
                 </button>
               </div>
 
-              {/* Next Question Pill */}
-              <button
-                onClick={handleSubmitAndNext}
-                disabled={isSubmitting}
-                className="px-6 sm:px-8 py-3.5 rounded-full bg-white text-black hover:bg-white/90 font-['Rubik'] font-extrabold text-sm sm:text-base tracking-tight shadow-2xl flex items-center gap-2 group transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
-              >
-                <span>{isSubmitting ? 'Evaluating...' : 'Next Question'}</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              {/* Question Action Controls */}
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                {/* Skip Question Button with Live Skip Timer Countdown */}
+                <button
+                  onClick={() => handleSkipQuestion('Contender Manual Skip')}
+                  disabled={isSubmitting}
+                  title={`Skip question immediately (0 points) • Auto-skips in ${secondsRemaining}s`}
+                  className="px-4 sm:px-5 py-3 rounded-full bg-[#201b3c] hover:bg-[#2c264f] text-[#cbd5e1] hover:text-white border border-white/10 font-['Rubik'] font-bold text-xs sm:text-sm tracking-tight flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-md"
+                >
+                  <SkipForward className="w-4 h-4 text-[#ffb4ab]" />
+                  <span>Skip</span>
+                  <span className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-black/40 text-cyan-300 border border-white/5">
+                    {secondsRemaining}s
+                  </span>
+                </button>
+
+                {/* Next Question Pill */}
+                <button
+                  onClick={handleSubmitAndNext}
+                  disabled={isSubmitting}
+                  className="px-6 sm:px-8 py-3.5 rounded-full bg-white text-black hover:bg-white/90 font-['Rubik'] font-extrabold text-sm sm:text-base tracking-tight shadow-2xl flex items-center gap-2 group transition-all transform hover:-translate-y-0.5 active:scale-95 cursor-pointer disabled:opacity-60"
+                >
+                  <span>{isSubmitting ? 'Evaluating...' : 'Next Question'}</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -58,6 +58,58 @@ Powered by **Next.js 15**, **Supabase** for persistent database storage & **Supa
 
 ---
 
+## 🗺️ Page Router & Deep Link Navigation
+
+AptiQuiz features comprehensive Next.js App Router support with bidirectional URL synchronization, browser history support (`popstate`), and direct URL routing:
+
+| Route | View | Description |
+| :--- | :--- | :--- |
+| `/` | **Home Page** | Room browser, PIN joiner, 10 ready quizzes, and admin portal |
+| `/lobby?room={code}` | **Lobby** | Real-time participant waiting room with Invite QR and start controls |
+| `/arena?room={code}` | **Quiz Arena** | Interactive player battle arena with timers, scratchpad & lifelines |
+| `/leaderboard?room={code}` | **Leaderboard** | Official verdict recap, Recharts performance trendline & rankings |
+| `/projector?room={code}` | **Auditorium Projector** | High-contrast 4K stage display designed for big-screen presentation |
+| `/host?room={code}` | **Host Console** | Stage director console for question control, timer freeze & broadcasts |
+| `/quiz/[id]` | **Direct Quiz** | Launches directly into arena for any quiz room code or set ID |
+| `/room/[code]` | **Direct Room** | Enters the lobby for any specific room code |
+
+---
+
+## 🎯 10 Ready-to-Start Curated Quizzes
+
+AptiQuiz includes 10 pre-configured, ready-to-start quizzes mapped to their respective question sets from [`aptiquiz_question_sets/`](aptiquiz_question_sets/):
+
+1. **`QUANT101`** — *Collegiate Quantitative Speed Qualifier* (Quant, 30 Questions)
+2. **`LOGIC202`** — *Deductive & Logical Reasoning Arena* (Logic, 30 Questions)
+3. **`VERBAL303`** — *Verbal Ability & Critical Reading Sprint* (Verbal, 30 Questions)
+4. **`DATA404`** — *Data Interpretation & Chart Championship* (Data Interpretation, 30 Questions)
+5. **`SPEED505`** — *Time, Work & Motion Speed Sprint* (Quant, 30 Questions)
+6. **`PROB606`** — *Combinatorics & Probability Masters* (Quant, 30 Questions)
+7. **`ALGEBRA707`** — *High-Yield Algebra & Geometry Battle* (Quant, 30 Questions)
+8. **`SERIES808`** — *Number Systems & Sequences Blitz* (Quant, 30 Questions)
+9. **`CAMPUS909`** — *Tier-1 Campus Placement Grand Prix* (Quant, 30 Questions)
+10. **`ADVMIX010`** — *Elite Advanced Mixed Aptitude Gauntlet* (Logic, 30 Questions)
+
+Each quiz card on the Home screen features:
+- **`Invite QR`** button — opens a scannable QR code customized to that room.
+- **`Start`** button — launches immediately into active arena gameplay.
+- **`Lobby`** button — enters the synchronized multiplayer waiting room.
+- **`Copy PIN`** — 1-click clipboard copy.
+
+---
+
+## 📱 Dynamic Invite QR Code System
+
+Powered by client-side QR matrix generation:
+- **Scannable Camera Target**: High-density QR code readable by any iOS Camera, Android Camera, or Google Lens without any extra app.
+- **Full Deep Link**: Encodes `${origin}/lobby?room=${roomCode}` into the QR code.
+- **Direct Actions**:
+  - **Copy Link**: 1-click URL copying with visual checkmark feedback.
+  - **Save Image**: Downloads a high-resolution `.PNG` image (`AptiQuiz-Room-{roomCode}-QR.png`) for slides, flyers, or stage projectors.
+  - **Native Share Sheet**: Invokes `navigator.share` on mobile/tablets for instant WhatsApp/Telegram sharing.
+
+---
+
 ## 🚀 Scalability Architecture & Distributed WebSocket Cluster
 
 In high-stakes collegiate battles, auditorium speed qualifiers, and campus hackathons, hundreds or thousands of concurrent students submit responses within tight milliseconds. A naive monolithic WebSocket server suffers from event loop starvation, garbage collection pauses, and head-of-line socket delays.
