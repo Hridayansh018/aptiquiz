@@ -297,7 +297,7 @@ app.prepare().then(() => {
 
     // ── Get scheduled quizzes ──────────────────────────────────────────────
     socket.on('get-scheduled-quizzes', (callback) => {
-      callback(scheduledQuizzes);
+      if (typeof callback === 'function') callback(scheduledQuizzes);
     });
 
     // ── Get quiz mode ──────────────────────────────────────────────────────
@@ -305,45 +305,56 @@ app.prepare().then(() => {
       const normCode = code?.toUpperCase();
       const quiz = scheduledQuizzes.find(q => q.code === normCode);
       const session = sessions[normCode];
-      callback?.({
-        found: Boolean(quiz || session),
-        mode: session?.mode || quiz?.mode || 'team',
-        title: session ? 'Active Quiz' : (quiz?.title || ''),
-      });
+      if (typeof callback === 'function') {
+        callback({
+          found: Boolean(quiz || session),
+          mode: session?.mode || quiz?.mode || 'team',
+          title: session ? 'Active Quiz' : (quiz?.title || ''),
+        });
+      }
     });
 
     // ── Schedule quiz ──────────────────────────────────────────────────────
     socket.on('schedule-quiz', async ({ title, startTime, hostId, questions, questionDuration, gapDuration, enableRooms, mode }, callback) => {
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const qDuration = questionDuration ?? 10;
-      const gDuration = gapDuration ?? 4;
-      const roomsEnabled = enableRooms ?? true;
-      const quizMode = mode === 'individual' ? 'individual' : 'team';
+      try {
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const qDuration = questionDuration ?? 10;
+        const gDuration = gapDuration ?? 4;
+        const roomsEnabled = enableRooms ?? true;
+        const quizMode = mode === 'individual' ? 'individual' : 'team';
 
-      const quizQuestions: QuizQuestion[] = Array.isArray(questions) && questions.length > 0
-        ? questions
-        : QUIZ_QUESTIONS;
+        const quizQuestions: QuizQuestion[] = Array.isArray(questions) && questions.length > 0
+          ? questions
+          : QUIZ_QUESTIONS;
 
-      const newQuiz: Quiz = {
-        id: Math.random().toString(36).substring(2, 15),
-        title,
-        startTime,
-        code,
-        hostId,
-        createdAt: new Date().toISOString(),
-        questions: quizQuestions,
-        questionDuration: qDuration,
-        gapDuration: gDuration,
-        enableRooms: roomsEnabled,
-        mode: quizMode,
-      };
+        const newQuiz: Quiz = {
+          id: Math.random().toString(36).substring(2, 15),
+          title: title || 'Untitled Quiz',
+          startTime: startTime || new Date().toISOString(),
+          code,
+          hostId: hostId || 'host-admin',
+          createdAt: new Date().toISOString(),
+          questions: quizQuestions,
+          questionDuration: qDuration,
+          gapDuration: gDuration,
+          enableRooms: roomsEnabled,
+          mode: quizMode,
+        };
 
-      scheduledQuizzes.push(newQuiz);
+        scheduledQuizzes.push(newQuiz);
 
-      console.log(`[RAM] Quiz ${code} (${quizMode} mode) saved to memory.`);
+        console.log(`[RAM] Quiz ${code} (${quizMode} mode) saved to memory.`);
 
-      io.emit('quiz-scheduled', newQuiz);
-      callback({ success: true, quiz: newQuiz });
+        io.emit('quiz-scheduled', newQuiz);
+        if (typeof callback === 'function') {
+          callback({ success: true, quiz: newQuiz });
+        }
+      } catch (err: any) {
+        console.error('Error scheduling quiz:', err);
+        if (typeof callback === 'function') {
+          callback({ success: false, message: err.message || 'Failed to schedule quiz' });
+        }
+      }
     });
 
     // ── Delete quiz ────────────────────────────────────────────────────────

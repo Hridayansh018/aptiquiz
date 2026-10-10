@@ -407,6 +407,10 @@ export default function HostSecretQuizAdminPage() {
       return;
     }
 
+    if (!socket.connected) {
+      socket.connect();
+    }
+
     if (editingCode) {
       // Edit existing
       socket.emit(
@@ -432,6 +436,7 @@ export default function HostSecretQuizAdminPage() {
       );
     } else {
       // Schedule fresh quiz
+      let handled = false;
       socket.emit(
         'schedule-quiz',
         {
@@ -445,6 +450,7 @@ export default function HostSecretQuizAdminPage() {
           mode: formMode,
         },
         (res: any) => {
+          handled = true;
           if (res?.success) {
             toast.success(`Quiz scheduled! Code: ${res.quiz.code} (${formMode} mode)`);
             setIsScheduleOpen(false);
@@ -453,6 +459,16 @@ export default function HostSecretQuizAdminPage() {
           }
         }
       );
+
+      // Safety fallback: if callback didn't run within 1.5s, close modal & refetch
+      setTimeout(() => {
+        if (!handled) {
+          setIsScheduleOpen(false);
+          socket.emit('get-scheduled-quizzes', (list: ScheduledQuiz[]) => {
+            if (Array.isArray(list)) setQuizzes(list);
+          });
+        }
+      }, 1500);
     }
   };
 
