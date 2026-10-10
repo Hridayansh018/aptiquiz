@@ -151,7 +151,10 @@ app.prepare().then(() => {
   const httpServer = createServer(server);
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.NEXT_PUBLIC_SITE_URL || '*',
+      origin: (requestOrigin, callback) => {
+        // Allow request origin dynamically to avoid CORS wildcard + credentials errors
+        callback(null, requestOrigin || true);
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -163,7 +166,10 @@ app.prepare().then(() => {
     perMessageDeflate: true
   });
 
-  server.use(cors());
+  server.use(cors({
+    origin: (origin, callback) => callback(null, origin || true),
+    credentials: true,
+  }));
 
   // ─── Leaderboard computation ──────────────────────────────────────────────
 
