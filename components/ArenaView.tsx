@@ -73,7 +73,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
     setAutoSkipCountdown(null);
     setSkipNoticeVisible(false);
     setCalcDisplay(question?.scratchpadFormula || '');
-  }, [question?.id, question?.standardPaceSec, question?.scratchpadFormula]);
+  }, [roundNumber, question?.id, question?.standardPaceSec, question?.scratchpadFormula]);
 
   // Main Question Timer countdown
   useEffect(() => {
@@ -325,6 +325,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
         <AnimatePresence>
           {autoSkipCountdown !== null && (
             <motion.div
+              key="auto-skip-active-banner"
               initial={{ opacity: 0, y: -10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10 }}
@@ -355,6 +356,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
 
           {skipNoticeVisible && (
             <motion.div
+              key="skip-notice-active-banner"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}

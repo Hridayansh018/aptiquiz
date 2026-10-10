@@ -209,7 +209,7 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
   const [adminOpen, setAdminOpen] = useState(false);
 
   // Load questions for active room code (mapped to curated sets or database)
-  const refreshQuestions = useCallback(async () => {
+  const refreshQuestions = useCallback(async (resetIndex = false) => {
     try {
       // 1. Check if room is directly mapped to one of the 10 curated question sets
       const matchedSetId = ROOM_TO_SET[roomCode];
@@ -217,7 +217,7 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
         const matchedQuestions = getQuestionsBySet(matchedSetId);
         if (matchedQuestions && matchedQuestions.length > 0) {
           setQuestions(matchedQuestions);
-          setCurrentQuestionIndex(0);
+          if (resetIndex) setCurrentQuestionIndex(0);
           return;
         }
       }
@@ -226,7 +226,7 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
       const data = await getQuestions(roomCode);
       if (data && data.length > 0) {
         setQuestions(data);
-        setCurrentQuestionIndex(0);
+        if (resetIndex) setCurrentQuestionIndex(0);
         return;
       }
 
@@ -238,10 +238,12 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
       } else {
         setQuestions(getRandomQuestionSlice(15));
       }
+      if (resetIndex) setCurrentQuestionIndex(0);
     } catch (err) {
       console.error('Failed to load questions from database, using curated set:', err);
       const fallbackSet = ROOM_TO_SET[roomCode] ? getQuestionsBySet(ROOM_TO_SET[roomCode]) : null;
       setQuestions(fallbackSet && fallbackSet.length > 0 ? fallbackSet : getRandomQuestionSlice(15));
+      if (resetIndex) setCurrentQuestionIndex(0);
     }
   }, [roomCode]);
 
@@ -281,13 +283,17 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
     }
   }, [roomCode, playerId]);
 
-  // Initial load
+  // Initial load for room questions, rooms and players (only on room change)
   useEffect(() => {
-    refreshQuestions();
+    refreshQuestions(true);
     refreshRooms();
     refreshPlayers();
+  }, [roomCode, refreshQuestions, refreshRooms, refreshPlayers]);
+
+  // Load achievements whenever userXP changes (isolated, does NOT touch questions or question index)
+  useEffect(() => {
     refreshAchievements();
-  }, [refreshQuestions, refreshRooms, refreshPlayers, refreshAchievements]);
+  }, [refreshAchievements]);
 
   // Supabase Realtime subscriptions
   useEffect(() => {
@@ -421,7 +427,21 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
       refreshPlayers();
     }
 
-    navigateToTab('leaderboard');
+    // Check if this was the final question of the quiz
+    const totalCount = questions.length || 30;
+    if (currentQuestionIndex + 1 >= totalCount) {
+      sound.playSuccess();
+      try {
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+      } catch {}
+      navigateToTab('leaderboard');
+    } else {
+      // Advance to next question in the arena
+      const nextIdx = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIdx);
+      clusterClientRef.current?.sendHostAction('advance_round');
+      navigateToTab('quiz-arena');
+    }
   };
 
   // Skip wait or advance round
@@ -577,6 +597,7 @@ export function AptiQuizApp({ initialTab, initialRoomCode }: AptiQuizAppProps) {
         {/* Screen 3: Quiz Arena (Player Interactive View) */}
         {activeTab === 'quiz-arena' && (
           <ArenaView
+            key={`arena-round-${roundNumber}-${currentQuestion?.id || currentQuestionIndex}`}
             question={currentQuestion}
             roundNumber={roundNumber}
             totalRounds={totalRounds}

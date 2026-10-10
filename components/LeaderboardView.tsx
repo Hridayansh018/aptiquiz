@@ -81,20 +81,21 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
     } catch {}
   }, []);
 
-  // Pacing automation ticker
+  // Pacing automation ticker: counts down and automatically advances to next question
   useEffect(() => {
+    if (countdown <= 0) {
+      const advanceTimer = setTimeout(() => {
+        onSkipWait();
+      }, 600);
+      return () => clearTimeout(advanceTimer);
+    }
+
     const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
+      setCountdown((prev) => Math.max(0, prev - 1));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [countdown, onSkipWait]);
 
   // Derive dynamic top 5 players directly from actual room participants
   const topPlayers = [...players]
