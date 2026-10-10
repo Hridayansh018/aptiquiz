@@ -1,6 +1,5 @@
 {
-  "name": "Quitzo AptiQuiz - Live Multiplayer Aptitude Arena",
-  "description": "Synchronized real-time multiplayer aptitude quiz arena with live projector display, lobby matchmaking, proctored scratchpad, round reveal breakdowns, and host console.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Real-Time Quiz App",
+  "description": "A full-stack real-time quiz application similar to Kahoot/AhaSlides using Socket.IO and Next.js.",
+  "requestFramePermissions": []
 }
