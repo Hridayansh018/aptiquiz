@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "clean": "next clean",
+    "db:seed": "tsx scripts/seed.ts",
     "ws:cluster": "tsx server/cluster.ts",
     "ws:test": "tsx server/test-load.ts"
   },

@@ -22,11 +22,13 @@ import {
   Player,
   RoundPerformance,
   HostedQuizRoom,
+  Achievement,
 } from '@/lib/quiz-data';
 import {
   getQuestions,
   getRooms,
   getRoomPlayers,
+  getAchievements,
   joinRoomPlayer,
   updatePlayerScore,
   savePerformanceHistory,
@@ -35,6 +37,7 @@ import {
 } from '@/lib/db';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { AptiQuizClusterClient } from '@/lib/websocket-client';
+import { getRandomQuestionSlice } from '@/lib/question-bank';
 import { sound } from '@/lib/audio';
 import confetti from 'canvas-confetti';
 import { Radio } from 'lucide-react';
@@ -100,6 +103,7 @@ export default function Home() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [players, setPlayers] = useState<Player[]>([]);
   const [rooms, setRooms] = useState<HostedQuizRoom[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [userEarnedPoints, setUserEarnedPoints] = useState(0);
   const [userRank, setUserRank] = useState(0);
   const [userStreak, setUserStreak] = useState(0);
@@ -120,7 +124,7 @@ export default function Home() {
   const roundNumber = currentQuestion ? currentQuestion.id : 1;
   const totalRounds = questions.length > 0 ? questions.length : 15;
 
-  // Load questions from Supabase / API
+  // Load questions from Supabase / API / Question Bank
   const refreshQuestions = useCallback(async () => {
     try {
       const data = await getQuestions(roomCode);
@@ -128,14 +132,17 @@ export default function Home() {
         setQuestions(data);
       } else {
         // Fetch via API route
-        const res = await fetch('/api/questions');
+        const res = await fetch(`/api/questions?room=${encodeURIComponent(roomCode)}`);
         const json = await res.json();
-        if (json.questions) {
+        if (json.questions && json.questions.length > 0) {
           setQuestions(json.questions);
+        } else {
+          setQuestions(getRandomQuestionSlice(15));
         }
       }
     } catch (err) {
-      console.error('Failed to load questions:', err);
+      console.error('Failed to load questions from database, using curated set:', err);
+      setQuestions(getRandomQuestionSlice(15));
     }
   }, [roomCode]);
 
@@ -148,6 +155,16 @@ export default function Home() {
       console.error('Failed to load rooms:', err);
     }
   }, []);
+
+  // Load achievements from Supabase
+  const refreshAchievements = useCallback(async () => {
+    try {
+      const data = await getAchievements(userXP);
+      setAchievements(data);
+    } catch (err) {
+      console.error('Failed to load achievements:', err);
+    }
+  }, [userXP]);
 
   // Load players for the current room
   const refreshPlayers = useCallback(async () => {
@@ -171,7 +188,8 @@ export default function Home() {
     refreshQuestions();
     refreshRooms();
     refreshPlayers();
-  }, [refreshQuestions, refreshRooms, refreshPlayers]);
+    refreshAchievements();
+  }, [refreshQuestions, refreshRooms, refreshPlayers, refreshAchievements]);
 
   // Supabase Realtime subscriptions (WebSockets)
   useEffect(() => {
@@ -556,6 +574,7 @@ export default function Home() {
         collegeName={collegeName}
         onSaveProfile={handleSaveProfile}
         userXP={userXP}
+        achievements={achievements}
       />
 
       <RoomCodeModal

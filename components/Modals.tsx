@@ -23,7 +23,7 @@ import {
   PlusCircle,
   Code
 } from 'lucide-react';
-import { Player, QuizQuestion, Achievement, INITIAL_ACHIEVEMENTS, QuestionCategory } from '@/lib/quiz-data';
+import { Player, QuizQuestion, Achievement, QuestionCategory } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
 
 // 1. QR Code Modal
@@ -310,7 +310,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   collegeName,
   onSaveProfile,
   userXP,
-  achievements = INITIAL_ACHIEVEMENTS,
+  achievements = [],
 }) => {
   const [name, setName] = useState(userName);
   const [college, setCollege] = useState(collegeName);
@@ -352,7 +352,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     sound.playClick();
-    onSaveProfile(name.trim() || 'Alex K.', college.trim() || 'Stanford Online');
+    onSaveProfile(name.trim() || userName || 'Player', college.trim() || collegeName || '');
     setActiveTab('badges');
   };
 

@@ -58,9 +58,11 @@ Powered by **Next.js 15**, **Supabase** for persistent database storage & **Supa
 
 ---
 
-## ⚡ Distributed WebSocket Cluster (5 Sub-Servers & Load Balancer)
+## 🚀 Scalability Architecture & Distributed WebSocket Cluster
 
-To handle thousands of concurrent students and auditorium participants with zero latency, AptiQuiz features a **Distributed WebSocket Cluster Architecture** with 5 load-balanced sub-servers merged into a single Central Master Hub:
+In high-stakes collegiate battles, auditorium speed qualifiers, and campus hackathons, hundreds or thousands of concurrent students submit responses within tight milliseconds. A naive monolithic WebSocket server suffers from event loop starvation, garbage collection pauses, and head-of-line socket delays.
+
+To guarantee **sub-50ms round-trip latency**, **zero packet loss**, and **rock-solid state consistency**, AptiQuiz implements a **Distributed Multi-Process Cluster Architecture** combining a smart reverse-proxy gateway, 5 partitioned WebSocket sub-servers, an authoritative Central Master Aggregator Hub, and an asynchronous Supabase persistence tier:
 
 ```
                                 +---------------------------------------------+
@@ -94,27 +96,50 @@ To handle thousands of concurrent students and auditorium participants with zero
                                          (Players, Projector, Host)
 ```
 
-### Cluster Components:
-1. **Central Master Aggregator Hub** ([`server/master-hub.ts`](server/master-hub.ts)):
-   - **Unified Global Leaderboard**: Aggregates and ranks all players across all 5 sub-servers into a single unified scoreboard.
-   - **State Merging**: Synchronizes round advancement, timer freezing, and announcements cluster-wide.
-   - **Cross-Node Fan-Out**: Broadcasts merged leaderboard events down to all sub-servers so every student sees synchronized rankings.
-2. **5 Independent Sub-Servers** ([`server/sub-worker.ts`](server/sub-worker.ts)):
-   - Run on distinct ports: `:8001`, `:8002`, `:8003`, `:8004`, `:8005`.
-   - Maintain client connections, measure ping/latencies, sanitize answer inputs, and submit scores to the Master Hub.
-3. **Load Balancer Gateway** ([`server/gateway.ts`](server/gateway.ts)):
-   - Listens on Port `:8000`.
-   - Distributes incoming WebSocket clients evenly across the 5 workers using **Least-Connections** or **Room-Affinity** algorithms.
-   - Serves an interactive HTML status dashboard at `http://localhost:8000` and live JSON telemetry at `http://localhost:8000/cluster/stats`.
+### 🏛️ Scalability Pillars
 
-### Running the Distributed Cluster:
+#### 1. Smart Reverse Proxy & Load Balancer Gateway ([`server/gateway.ts`](server/gateway.ts))
+* **Port**: `:8000`
+* **Zero-Copy TCP Socket Tunneling**: Intercepts HTTP `Upgrade: websocket` requests and transparently pipes the raw TCP stream directly to the target worker using native Node.js socket piping (`net.connect`). This eliminates payload re-serialization overhead.
+* **Dynamic Load Balancing Strategies**:
+  * **Least-Connections (`least-connections`)** *(Default)*: Routes new contenders to the worker instance currently handling the fewest active connections, preventing hotspots during mass auditorium join waves.
+  * **Consistent Room Hashing (`room-hash`)**: Uses a hash of `roomCode` modulo worker count to enforce room affinity, keeping single-room contenders clustered when desired.
+  * **Round-Robin (`round-robin`)**: Sequential connection distribution.
+* **Live Cluster Telemetry Dashboard**:
+  * Serves an interactive HTML status dashboard at `http://localhost:8000`.
+  * Exposes JSON telemetry at `http://localhost:8000/cluster/stats` with per-worker connection counts, message throughput, and process memory utilization.
+
+#### 2. Partitioned Sub-Worker Processes ([`server/sub-worker.ts`](server/sub-worker.ts))
+* **Ports**: `:8001`, `:8002`, `:8003`, `:8004`, `:8005`
+* **Event Loop Isolation**: By running 5 distinct worker servers across dedicated ports, socket allocations, message serialization, and garbage collection pauses are distributed across multiple CPU cores rather than blocking a single thread.
+* **Edge Validation & Sanitization**:
+  * Each worker sanitizes incoming answer payloads, validates room tokens, and records sub-millisecond client response timestamps before forwarding events to the master hub.
+  * Maintains socket-level heartbeat ping/pongs every 25 seconds, dropping ghost connections immediately.
+
+#### 3. Hub-and-Spoke Central Aggregator ([`server/master-hub.ts`](server/master-hub.ts))
+* **Global Leaderboard Merging**: When a student on `Worker 2` locks in an answer and a student on `Worker 5` does the same, the Master Hub aggregates both events into a single authoritative in-memory state map.
+* **Deterministic Rank Calculation**: Computes live ranks, tie-breaks, speed-bonus multipliers, and streak statuses across all connected participants simultaneously.
+* **Parallel Broadcast Fan-Out**: The unified leaderboard is fanned out in parallel back across all 5 sub-servers, ensuring the auditorium projector and every player's mobile screen update in unison within milliseconds.
+* **Concurrency & Race Condition Prevention**: State transitions (e.g. Host Freezes Timer, Next Round, Question Broadcast) are authoritatively dispatched from the hub, avoiding split-brain desynchronization across nodes.
+
+#### 4. Hybrid Realtime & Asynchronous Database Persistence
+* **Microsecond In-Memory Execution**: Gameplay-critical operations (timer countdowns, rapid-fire button locks, live rank flips) execute purely in memory for microsecond responsiveness.
+* **Asynchronous Supabase Sync**: Aggregated standings, match logs, and player XP are committed asynchronously to the Supabase PostgreSQL database ([`schema.sql`](schema.sql)) without blocking the live WebSocket tick loop.
+* **High-Availability Fallback**: If external database connectivity drops or hits rate limits, the system seamlessly continues running on the built-in 300-question bank ([`lib/question-bank.ts`](lib/question-bank.ts)) with zero impact on active players.
+
+---
+
+### 🧪 Load Testing & Cluster Operations
+
 ```bash
-# Start all 5 WebSocket Sub-Servers + Load Balancer Gateway
+# 1. Launch the 5-Worker Cluster + Gateway + Master Hub
 npm run ws:cluster
 
-# Run automated 25+ concurrent player simulation across all 5 workers
+# 2. Run the Concurrent Stress Test (Simulates 50+ Real Players across all 5 workers)
 npm run ws:test
 ```
+
+The automated test harness ([`server/simulate-users.ts`](server/simulate-users.ts)) launches 50 concurrent virtual contenders connecting through the Gateway, submitting realistic answers with randomized latency profiles, and asserting synchronized score updates across the cluster.
 
 ## 🗄️ Supabase Database Architecture
 
@@ -167,30 +192,55 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-public-key"
 4. Click **Run**.
 5. All tables, security policies, indexes, and realtime publications will be created instantly.
 
+### 4. Seed the Database (Rooms, Questions, Achievements, Contenders)
+You can seed the database using either the Node/TypeScript CLI script or directly via SQL:
+
+#### Option A: TypeScript Seed Script (CLI) — Seeds All 300 Curated Questions
+Once `.env.local` is configured with your Supabase credentials:
+```bash
+npm run db:seed
+```
+This automatically seeds achievements, hosted rooms (`LIVE01`, `ARENA2026`, `GATE2026`, `CAT2026`), all **300 collegiate aptitude questions** across 10 specialized categories from [`aptiquiz_question_sets/`](aptiquiz_question_sets/) with verified explanations, and contender profiles.
+
+#### Option B: Direct SQL Seed
+- Run [`supabase/seed.sql`](supabase/seed.sql) in your Supabase SQL Editor to populate base achievements, rooms, and starter questions.
+- Run [`supabase/seed_questions.sql`](supabase/seed_questions.sql) to batch insert all **300 curated aptitude questions** into `public.questions`.
+
 ---
 
-## 🛠️ Adding Questions to the Database
+## 📚 Curated Question Bank (`aptiquiz_question_sets/`)
 
-You can add questions through multiple methods:
+AptiQuiz includes **300 battle-tested collegiate aptitude questions** structured across 10 distinct sets:
+1. `01_quantitative_aptitude` (30 MCQs)
+2. `02_logical_reasoning` (30 MCQs)
+3. `03_verbal_ability` (30 MCQs)
+4. `04_data_interpretation` (30 MCQs)
+5. `05_time_work_speed` (30 MCQs)
+6. `06_probability_counting` (30 MCQs)
+7. `07_algebra_geometry` (30 MCQs)
+8. `08_number_systems_series` (30 MCQs)
+9. `09_mixed_placement` (30 MCQs)
+10. `10_advanced_mixed` (30 MCQs)
 
-### Method 1: In-App Administrator Portal (GUI)
-1. On the **Home** screen or in the **Host Console**, click **"Add Question / View Guide"**.
-2. Fill out the form (Question prompt, Category, Options A–D, Correct Key, Explanation).
-3. Click **"Inject Question Into Arena"**.
-4. The question is saved into the Supabase `questions` table and immediately loaded into the active runtime.
+### Question Bank Integration
+- **In-Memory & Hybrid Fallback**: [`lib/question-bank.ts`](lib/question-bank.ts) exposes `QUESTION_BANK`, `QUESTION_SETS`, `getQuestionsBySet()`, `getQuestionsByCategory()`, and `getRandomQuestionSlice()`.
+- **Arena & Projector Runtime**: The Quiz Arena automatically draws questions from Supabase or the curated 300-question bank.
+- **Host Console**: Real-time search and category filtering across the entire question bank.
 
-### Method 2: Via REST API (`/api/questions`)
+### REST API Endpoints (`/api/questions`)
 
-#### Fetch Questions (GET):
 ```bash
-# Fetch all questions
+# Fetch randomized slice (default: 15 questions)
 curl http://localhost:3000/api/questions
 
-# Filter by category
-curl "http://localhost:3000/api/questions?category=Quant"
+# Fetch list of all 10 question sets with metadata
+curl "http://localhost:3000/api/questions?sets=true"
 
-# Filter by room
-curl "http://localhost:3000/api/questions?room=7K9QX"
+# Filter by category (Quant, Logic, Verbal, Data Interpretation)
+curl "http://localhost:3000/api/questions?category=Quant&limit=10"
+
+# Filter by specific question set
+curl "http://localhost:3000/api/questions?set=05_time_work_speed"
 ```
 
 #### Insert New Question (POST):

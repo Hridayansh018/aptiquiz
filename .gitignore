@@ -5,3 +5,5 @@ coverage/
 *.log
 .env*
 !.env.example
+.agents/*
+/aptiquiz_question_sets

@@ -1,0 +1,5 @@
+College aptitude tests were boring, so we rebuilt them as an auditorium esports arena.
+
+AptiQuiz features supersonic speed-scoring, streak multipliers, 4K projector mode, and a 5-node distributed WebSocket cluster that load-balances 500+ live students with zero lag.
+
+You built it. Now compete: https://github.com/Hridayansh018/aptiquiz

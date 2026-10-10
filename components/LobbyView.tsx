@@ -312,88 +312,85 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               </span>
             </div>
 
-            {/* Featured Roster Items */}
+            {/* Featured Roster Items (Dynamic from real room players) */}
             <div className="flex flex-col gap-2.5">
-              {/* Top Seed 1: Alex K. */}
-              <div className="w-full bg-white text-[#0e082a] rounded-full p-2 pr-4 flex items-center justify-between shadow-lg hover:-translate-y-0.5 transition-transform cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#7359f8] text-white font-extrabold text-sm flex items-center justify-center">
-                    AK
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm text-[#0e082a] leading-tight">Alex K.</span>
-                    <span className="text-[11px] text-[#7359f8] font-bold">RVCE Bangalore</span>
-                  </div>
+              {players.length === 0 ? (
+                <div className="w-full bg-[#0e082a]/70 text-[#c9c4d8] rounded-2xl p-6 text-center border border-white/5 flex flex-col items-center justify-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#00e599] animate-ping"></div>
+                  <span className="text-xs font-bold text-white">Awaiting Contenders to Join</span>
+                  <span className="text-[11px] text-[#c9c4d8]/70">Enter PIN {roomCode} to check in live</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#7359f8] animate-pulse"></span>
-                  <span className="text-xs font-extrabold text-gray-500">TOP SEED</span>
-                </div>
-              </div>
-
-              {/* Top Seed 2: Kavya S. (Black Pill Active Contrast) */}
-              <div className="w-full bg-[#0e082a] text-white rounded-full p-2 pr-4 flex items-center justify-between shadow-xl ring-2 ring-[#c8bfff]/30 hover:-translate-y-0.5 transition-transform cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white text-[#0e082a] font-extrabold text-sm flex items-center justify-center">
-                    KS
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm text-white leading-tight">Kavya S.</span>
-                    <span className="text-[11px] text-[#c8bfff] font-bold">MIT Pune (CS)</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#7359f8] text-white text-xs font-black">
-                  <Flame className="w-3.5 h-3.5 fill-current" /> STREAK: 12
-                </div>
-              </div>
-
-              {/* Top Seed 3: Rohan I. */}
-              <div className="w-full bg-white text-[#0e082a] rounded-full p-2 pr-4 flex items-center justify-between shadow-lg hover:-translate-y-0.5 transition-transform cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#7359f8] text-white font-extrabold text-sm flex items-center justify-center">
-                    RI
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm text-[#0e082a] leading-tight">Rohan I.</span>
-                    <span className="text-[11px] text-[#7359f8] font-bold">BITS Pilani</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#7359f8]"></span>
-                  <span className="text-xs font-extrabold text-gray-500">READY</span>
-                </div>
-              </div>
-
-              {/* Top Seed 4: Ananya V. */}
-              <div className="w-full bg-white text-[#0e082a] rounded-full p-2 pr-4 flex items-center justify-between shadow-lg hover:-translate-y-0.5 transition-transform cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#7359f8] text-white font-extrabold text-sm flex items-center justify-center">
-                    AV
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm text-[#0e082a] leading-tight">Ananya V.</span>
-                    <span className="text-[11px] text-[#7359f8] font-bold">IIT Bombay</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#7359f8]"></span>
-                  <span className="text-xs font-extrabold text-gray-500">READY</span>
-                </div>
-              </div>
+              ) : (
+                players.slice(0, 4).map((p, index) => {
+                  const isBlack = index === 1;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`w-full rounded-full p-2 pr-4 flex items-center justify-between shadow-lg hover:-translate-y-0.5 transition-transform cursor-pointer ${
+                        isBlack
+                          ? 'bg-[#0e082a] text-white ring-2 ring-[#c8bfff]/30'
+                          : 'bg-white text-[#0e082a]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-full font-extrabold text-sm flex items-center justify-center ${
+                            isBlack ? 'bg-white text-[#0e082a]' : 'bg-[#7359f8] text-white'
+                          }`}
+                        >
+                          {p.initials || p.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col text-left truncate">
+                          <span
+                            className={`font-bold text-sm leading-tight truncate ${
+                              isBlack ? 'text-white' : 'text-[#0e082a]'
+                            }`}
+                          >
+                            {p.name} {p.isCurrentUser && '(You)'}
+                          </span>
+                          <span
+                            className={`text-[11px] font-bold truncate ${
+                              isBlack ? 'text-[#c8bfff]' : 'text-[#7359f8]'
+                            }`}
+                          >
+                            {p.college || 'Competitor'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {p.streakCount && p.streakCount >= 3 ? (
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#7359f8] text-white text-[11px] font-black">
+                            <Flame className="w-3 h-3 fill-current" /> 🔥 {p.streakCount}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#00e599]"></span>
+                            <span className="text-[11px] font-extrabold uppercase text-gray-400">
+                              {p.status || 'READY'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Quick Summary Bar */}
-            <div className="bg-[#0e082a]/85 backdrop-blur-md text-white rounded-full px-5 py-3 flex items-center justify-between border border-white/5">
-              <span className="text-xs text-[#c9c4d8]">
-                +{players.length - 4} More Contenders below
-              </span>
-              <a
-                href="#full-roster"
-                className="text-xs font-black text-[#c8bfff] uppercase tracking-wider hover:underline flex items-center gap-1"
-              >
-                Jump to Roster <ArrowDown className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            {players.length > 4 && (
+              <div className="bg-[#0e082a]/85 backdrop-blur-md text-white rounded-full px-5 py-3 flex items-center justify-between border border-white/5">
+                <span className="text-xs text-[#c9c4d8]">
+                  +{players.length - 4} More Contenders below
+                </span>
+                <a
+                  href="#full-roster"
+                  className="text-xs font-black text-[#c8bfff] uppercase tracking-wider hover:underline flex items-center gap-1"
+                >
+                  Jump to Roster <ArrowDown className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </section>

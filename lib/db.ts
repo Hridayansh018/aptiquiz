@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { QuizQuestion, Player, HostedQuizRoom, RoundPerformance } from './quiz-data';
+import { QuizQuestion, Player, HostedQuizRoom, RoundPerformance, Achievement } from './quiz-data';
 
 // ============================================================================
 // QUESTIONS CRUD
@@ -95,7 +95,7 @@ export async function getRooms(): Promise<HostedQuizRoom[]> {
 
   const { data, error } = await supabase
     .from('rooms')
-    .select('*')
+    .select('*, room_players(count)')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -103,18 +103,21 @@ export async function getRooms(): Promise<HostedQuizRoom[]> {
     return [];
   }
 
-  return (data || []).map((row: any) => ({
-    roomCode: row.room_code,
-    title: row.title,
-    category: row.category,
-    hostName: row.host_name,
-    playersJoined: 0, // dynamic count or populated from room_players
-    maxPlayers: row.max_players,
-    status: row.status,
-    roundInfo: `Round ${String(row.current_round || 1).padStart(2, '0')} / ${row.total_rounds || 15}`,
-    questionCount: row.total_rounds || 15,
-    tags: row.tags || [],
-  }));
+  return (data || []).map((row: any) => {
+    const playersJoined = row.room_players?.[0]?.count ?? 0;
+    return {
+      roomCode: row.room_code,
+      title: row.title,
+      category: row.category,
+      hostName: row.host_name,
+      playersJoined,
+      maxPlayers: row.max_players,
+      status: row.status,
+      roundInfo: `Round ${String(row.current_round || 1).padStart(2, '0')} / ${row.total_rounds || 15}`,
+      questionCount: row.total_rounds || 15,
+      tags: row.tags || [],
+    };
+  });
 }
 
 export async function getRoom(roomCode: string): Promise<HostedQuizRoom | null> {
@@ -419,4 +422,38 @@ export function subscribeToRoomState(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// ============================================================================
+// ACHIEVEMENTS CRUD
+// ============================================================================
+
+export async function getAchievements(userXP: number = 0): Promise<Achievement[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('achievements')
+    .select('*')
+    .order('milestone_points', { ascending: true });
+
+  if (error || !data) {
+    console.error('Error fetching achievements from Supabase:', error);
+    return [];
+  }
+
+  return data.map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    description: row.description,
+    iconName: row.icon_name,
+    milestonePoints: row.milestone_points,
+    tier: row.tier,
+    progress: Math.min(userXP, row.milestone_points),
+    maxProgress: row.milestone_points,
+    unlocked: userXP >= row.milestone_points,
+    badgeLabel: row.badge_label,
+  }));
 }

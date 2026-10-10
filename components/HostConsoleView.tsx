@@ -62,6 +62,8 @@ export const HostConsoleView: React.FC<HostConsoleViewProps> = ({
   const [proctoringActive, setProctoringActive] = useState(true);
   const [multiplier, setMultiplier] = useState<'1.0x' | '1.5x' | '2.0x'>('1.5x');
   const [activeTab, setActiveTab] = useState<'controls' | 'questions' | 'roster'>('controls');
+  const [questionCategoryFilter, setQuestionCategoryFilter] = useState<string>('all');
+  const [questionSearch, setQuestionSearch] = useState<string>('');
 
   const handleSendAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,59 +330,137 @@ export const HostConsoleView: React.FC<HostConsoleViewProps> = ({
         {/* Tab 2: Question Bank */}
         {activeTab === 'questions' && (
           <div className="relative z-10 bg-white text-[#0e082a] rounded-2xl p-6 sm:p-8 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="font-['Rubik'] font-black text-xl text-[#0e082a]">
-                  Aptitude Question Repository
+                  Aptitude Question Repository ({questions.length} Loaded)
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Select any question to immediately project or test in the arena
+                  Select any question from the curated 300-question bank to immediately project or test
                 </p>
+              </div>
+
+              {/* Search bar */}
+              <div className="relative w-full md:w-64">
+                <input
+                  type="text"
+                  value={questionSearch}
+                  onChange={(e) => setQuestionSearch(e.target.value)}
+                  placeholder="Search questions or topics..."
+                  className="w-full bg-gray-100 text-[#0e082a] placeholder:text-gray-400 text-xs rounded-full px-4 py-2 border border-gray-200 outline-none focus:border-[#7359f8]"
+                />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {questions.map((q) => {
-                const isActive = q.id === currentQuestion.id;
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2 mb-5 pb-3 border-b border-gray-100">
+              {[
+                { id: 'all', label: 'All Sets' },
+                { id: 'quant', label: 'Quant' },
+                { id: 'logic', label: 'Logic' },
+                { id: 'verbal', label: 'Verbal' },
+                { id: 'data interpretation', label: 'Data Interpretation' },
+              ].map((cat) => {
+                const isSelected = questionCategoryFilter === cat.id;
                 return (
-                  <div
-                    key={q.id}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                      isActive
-                        ? 'border-[#7359f8] bg-[#f5f2ff] ring-2 ring-[#7359f8]/30 shadow-md'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
+                  <button
+                    key={cat.id}
                     onClick={() => {
                       sound.playClick();
-                      onSelectQuestion(q);
+                      setQuestionCategoryFilter(cat.id);
                     }}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                      isSelected
+                        ? 'bg-[#7359f8] text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${getCategoryMeta(q.category || 'Quant').badgeBg} text-white`}>
-                          {getCategoryMeta(q.category || 'Quant').label}
-                        </span>
-                        <span className="text-xs font-black text-[#7359f8] uppercase">
-                          Q{q.id} • {q.topic}
-                        </span>
-                      </div>
-                      {isActive && (
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#7359f8] text-white">
-                          LIVE ON STAGE
-                        </span>
-                      )}
-                    </div>
-                    <p className="font-bold text-sm text-[#0e082a] mb-3 line-clamp-2">
-                      {q.question}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-gray-600 font-semibold pt-2 border-t border-gray-100">
-                      <span>Correct: {q.officialAnswerText}</span>
-                      <span className="text-[#7359f8]">Formula available</span>
-                    </div>
-                  </div>
+                    {cat.label}
+                  </button>
                 );
               })}
             </div>
+
+            {/* Questions Grid */}
+            {(() => {
+              const filtered = questions.filter((q) => {
+                const matchesCat =
+                  questionCategoryFilter === 'all' ||
+                  q.category.toLowerCase() === questionCategoryFilter.toLowerCase();
+                const matchesSearch =
+                  !questionSearch.trim() ||
+                  q.question.toLowerCase().includes(questionSearch.toLowerCase()) ||
+                  q.topic.toLowerCase().includes(questionSearch.toLowerCase()) ||
+                  q.section.toLowerCase().includes(questionSearch.toLowerCase());
+                return matchesCat && matchesSearch;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="py-12 text-center text-gray-500">
+                    <p className="font-bold text-sm">No questions match the current filter.</p>
+                    <button
+                      onClick={() => {
+                        setQuestionCategoryFilter('all');
+                        setQuestionSearch('');
+                      }}
+                      className="mt-2 text-xs text-[#7359f8] font-bold underline"
+                    >
+                      Reset filters
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[550px] overflow-y-auto pr-1">
+                  {filtered.map((q) => {
+                    const isActive = q.id === currentQuestion.id;
+                    return (
+                      <div
+                        key={q.id}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                          isActive
+                            ? 'border-[#7359f8] bg-[#f5f2ff] ring-2 ring-[#7359f8]/30 shadow-md'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                        onClick={() => {
+                          sound.playClick();
+                          onSelectQuestion(q);
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span
+                              className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                getCategoryMeta(q.category || 'Quant').badgeBg
+                              } text-white shrink-0`}
+                            >
+                              {getCategoryMeta(q.category || 'Quant').label}
+                            </span>
+                            <span className="text-xs font-black text-[#7359f8] uppercase truncate">
+                              Q{q.id} • {q.section || q.topic}
+                            </span>
+                          </div>
+                          {isActive && (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#7359f8] text-white shrink-0 ml-1">
+                              LIVE ON STAGE
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-bold text-sm text-[#0e082a] mb-3 line-clamp-2">
+                          {q.question}
+                        </p>
+                        <div className="flex items-center justify-between text-xs text-gray-600 font-semibold pt-2 border-t border-gray-100">
+                          <span className="truncate">Correct: {q.officialAnswerText}</span>
+                          <span className="text-[#7359f8] shrink-0 ml-2">⚡ {q.standardPaceSec}s</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

@@ -2,34 +2,64 @@ import { NextRequest, NextResponse } from 'next/server';
 import { QuizQuestion } from '@/lib/quiz-data';
 import { getQuestions, insertQuestion } from '@/lib/db';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import {
+  QUESTION_BANK,
+  QUESTION_SETS,
+  getQuestionsBySet,
+  getQuestionsByCategory,
+} from '@/lib/question-bank';
 
-// In-memory fallback if Supabase credentials are not configured yet
-let fallbackQuestions: QuizQuestion[] = [];
+const customInjectedQuestions: QuizQuestion[] = [];
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category');
   const roomCode = searchParams.get('room');
+  const setName = searchParams.get('set');
+  const listSets = searchParams.get('sets');
+  const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
   try {
+    if (listSets) {
+      return NextResponse.json({
+        status: 'success',
+        totalSets: QUESTION_SETS.length,
+        sets: QUESTION_SETS,
+      });
+    }
+
     let questions: QuizQuestion[] = [];
 
     if (isSupabaseConfigured()) {
       questions = await getQuestions(roomCode || undefined);
-    } else {
-      questions = fallbackQuestions;
     }
 
-    if (category) {
-      questions = questions.filter(
-        (q) => q.category.toLowerCase() === category.toLowerCase()
-      );
+    // If Supabase returned empty or is not yet configured, pull from curated 300-question bank
+    if (questions.length === 0) {
+      if (setName) {
+        questions = getQuestionsBySet(setName);
+      } else if (category) {
+        questions = getQuestionsByCategory(category);
+      } else {
+        questions = QUESTION_BANK;
+      }
+    } else {
+      if (category) {
+        questions = questions.filter(
+          (q) => q.category.toLowerCase() === category.toLowerCase()
+        );
+      }
+    }
+
+    if (limit && limit > 0) {
+      questions = questions.slice(0, limit);
     }
 
     return NextResponse.json({
       status: 'success',
-      source: isSupabaseConfigured() ? 'supabase' : 'in-memory-fallback',
+      source: isSupabaseConfigured() && questions.length > 0 ? 'supabase' : 'curated-question-bank',
       total: questions.length,
+      availableSets: QUESTION_SETS.length,
       questions,
     });
   } catch (error: any) {
@@ -87,9 +117,9 @@ export async function POST(request: NextRequest) {
     } else {
       newQuestion = {
         ...questionPayload,
-        id: fallbackQuestions.length + 1,
+        id: QUESTION_BANK.length + customInjectedQuestions.length + 1,
       };
-      fallbackQuestions.push(newQuestion);
+      customInjectedQuestions.push(newQuestion);
     }
 
     return NextResponse.json({

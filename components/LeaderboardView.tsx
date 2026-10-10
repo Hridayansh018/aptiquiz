@@ -28,7 +28,7 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
-import { QuizQuestion, Player, RoundPerformance, INITIAL_PERFORMANCE_HISTORY } from '@/lib/quiz-data';
+import { QuizQuestion, Player, RoundPerformance } from '@/lib/quiz-data';
 import { sound } from '@/lib/audio';
 
 interface LeaderboardViewProps {
