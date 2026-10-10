@@ -8,7 +8,7 @@ A high-performance, real-time quiz platform supporting **1,500+ concurrent playe
 
 - [Tech Stack](#tech-stack)
 - [Quick Start (Local)](#quick-start-local)
-- [Deployment (Render)](#deployment-render)
+- [Deployment & Environment Setup Guide](#-deployment--environment-setup-guide)
 - [Admin Guide](#-admin-guide)
 - [Player Guide](#-player-guide)
 - [Public Leaderboard Screen](#-public-leaderboard-screen)
@@ -48,33 +48,66 @@ npm run dev
 
 ---
 
-## Deployment (Render)
+## 🚀 Deployment & Environment Setup Guide
 
-This app must be deployed on a **persistent server** (not Vercel) because it requires long-lived WebSocket connections.
+Because AptiQuiz utilizes long-lived WebSocket connections sharded in Node.js server RAM, it must be deployed on a **persistent node environment** (e.g., Render, Railway, Fly.io, AWS EC2, or custom VPS). Serverless platforms like Vercel Functions are not suitable for persistent Socket.IO connections.
 
-### Steps
+---
 
-1. Push your code to GitHub.
-2. Go to [render.com](https://render.com) → **New → Web Service**.
+### ⚙️ Environment Variables Reference
+
+Configure these environment variables in your deployment dashboard or `.env.local` file:
+
+| Variable | Scope | Default | Description |
+|---|---|---|---|
+| `PORT` | Server | `3000` | The network port Node.js listens on. Provided automatically by Render/Railway. |
+| `NODE_ENV` | Server & UI | `development` | Set to `production` in live environments for optimized Next.js builds. |
+| `NEXT_PUBLIC_SOCKET_URL` | UI Client | `""` (empty) | WebSocket server endpoint URL (e.g. `https://your-quiz-app.onrender.com`). Leave empty when UI and Socket.IO share the same origin. |
+| `NEXT_PUBLIC_SITE_URL` | Server CORS | `*` | Allowed CORS origin for Socket.IO HTTP handshake (e.g. `https://your-quiz-app.onrender.com`). |
+
+---
+
+### 🌐 Deploying on Render
+
+1. Push your repository to GitHub.
+2. Go to [Render Dashboard](https://render.com) → **New → Web Service**.
 3. Connect your GitHub repository.
-4. Configure:
+4. Configure service settings:
 
 | Setting | Value |
 |---|---|
 | **Environment** | Node |
 | **Build Command** | `npm install && npm run build` |
 | **Start Command** | `npm start` |
-| **Root Directory** | *(leave blank)* |
+| **Auto-Deploy** | Yes |
 
-5. Add Environment Variables:
+5. Set Environment Variables under **Environment**:
+   - `NODE_ENV` = `production`
+   - `NEXT_PUBLIC_SOCKET_URL` = `https://<your-render-app-name>.onrender.com` *(optional if single host)*
+   - `NEXT_PUBLIC_SITE_URL` = `https://<your-render-app-name>.onrender.com`
 
-| Key | Value |
-|---|---|
-| `NODE_ENV` | `production` |
+6. Click **Create Web Service**. Render automatically assigns the `PORT` variable.
 
-6. Click **Deploy**. Render auto-assigns the `PORT` — your app handles it automatically.
+---
 
-> ⚠️ **Important:** The app stores all quiz data in RAM. If Render restarts your service (e.g., after a new deploy), all active sessions and scheduled quizzes are wiped. Only deploy updates when no quiz is running.
+### 🔀 Reverse Proxy / Nginx WebSocket Configuration
+
+If deploying behind **Nginx** or a custom proxy, ensure WebSocket upgrade headers are passed to prevent connection drops:
+
+```nginx
+location / {
+    proxy_pass http://localhost:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
+}
+```
+
+---
+
+> ⚠️ **Important Memory Note:** AptiQuiz stores live quiz sessions and participant state in server RAM. Redeploying or restarting the server will clear active sessions. Deploy updates outside active quiz hours.
 
 ---
 
