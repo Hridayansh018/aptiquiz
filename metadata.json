@@ -1,0 +1,6 @@
+{
+  "name": "Quitzo AptiQuiz - Live Multiplayer Aptitude Arena",
+  "description": "Synchronized real-time multiplayer aptitude quiz arena with live projector display, lobby matchmaking, proctored scratchpad, round reveal breakdowns, and host console.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
