@@ -77,7 +77,7 @@ Configure these environment variables in your deployment dashboard or `.env.loca
 | Setting | Value |
 |---|---|
 | **Environment** | Node |
-| **Build Command** | `npm install && npm run build` |
+| **Build Command** | `npm install --include=dev && npm run build` |
 | **Start Command** | `npm start` |
 | **Auto-Deploy** | Yes |
 
